@@ -1,0 +1,148 @@
+### SÉRIE HISTÓRICA DOS ACIDENTES DE TRÂNSITO EM RODOVIAS FEDERAIS #######
+
+
+bibliotecas = c("forecast", "lmtest", "nortest","dplyr","readr","tidyverse","readxl")
+install.packages(bibliotecas)
+
+library(forecast)
+library(lmtest)
+library(nortest)
+library(dplyr)
+library(readr)
+library(tidyverse)
+library(readxl)
+
+
+### LEITURA DOS DADOS
+
+dados <- read_excel("C:/TCC-PUCMINAS/Acidentes Diários/TS_BASE.xlsx", 
+                      col_types = c("date", "numeric", "numeric","numeric","numeric", 
+                                    "numeric", "numeric", "numeric", 
+                                    "numeric"))
+
+
+### SÉRIE HISTORICA DE JANEIRO DE 2007 A DEZEMBRO DE 2020 - TREINO E TESTE ####
+dados <- dados %>% filter(ANO<2021)
+
+
+### ORDENANDO A SERIE DE DADOS ####
+dados <- dados[order(dados$DATA),]
+
+
+### SÉRIE HISTÓRICA DOS ACIDENTES DE TRÂNSITO EM RODOVIAS FEDERAIS #######
+
+
+bibliotecas = c("forecast", "lmtest", "nortest","dplyr","readr","tidyverse","readxl")
+install.packages(bibliotecas)
+
+library(forecast)
+library(lmtest)
+library(nortest)
+library(dplyr)
+library(readr)
+library(tidyverse)
+library(readxl)
+
+
+### LEITURA DOS DADOS
+
+dados <- read_excel("C:/TCC-PUCMINAS/Acidentes Diários/TS_BASE.xlsx", 
+                      col_types = c("date", "numeric", "numeric","numeric","numeric", 
+                                    "numeric", "numeric", "numeric", 
+                                    "numeric"))
+
+
+### SÉRIE HISTORICA DE JANEIRO DE 2007 A DEZEMBRO DE 2020 - TREINO E TESTE ####
+dados <- dados %>% filter(ANO<2021)
+
+
+### ORDENANDO A SERIE DE DADOS ####
+dados <- dados[order(dados$DATA),]
+
+
+### SÉRIES TEMPORAIS TRIMESTRAL - ACIDENTES COM VÍTIMAS
+dados1 <- ts(dados[,5], start = c(2007,1), end = c(2019,4), frequency = 4)
+# Obs.: frequency = 1(Ano); frequency = 4(Trimestre); frequency = 12(Mês); frequency = 52(Semanas)
+
+
+### GRÁFICO DA SÉRIE TEMPORAL
+autoplot(dados1, xlab = "Ano", ylab = "Acidentes com Vítimas")
+
+
+# DECOMPOSIÇÃO DA SÉRIE TEMPORAL
+componentes <- stats::decompose(dados1, type=c("additive")) # additive or multiplicative
+plot(componentes)
+
+
+# COMPONENTE ALEATÓRIA DA SÉRIE
+shapiro.test(componentes$random)
+
+
+
+#TRANSFORMAÇÃO DE BOX COX PARA ESTABILIZAÇÃO DA VARIÂNCIA DA SÉRIE DE DADOS
+lambda <- BoxCox.lambda(dados1)  
+lambda
+
+dados1_bc <- BoxCox(dados1, lambda = lambda)
+
+
+
+# NÚMERO DE DIFERENCIAÇÕES NÃO SAZONAIS PARA TRANSFORMA A SÉRIE ESTACIONÁRIA
+ndiffs(dados1_bc)  # não apresenta diferenciações
+
+
+
+
+
+
+# teste com os modelos ARIMA e SARIMA para obter o melhor modelo
+auto.arima(dados1, trace = TRUE, approximation = FALSE)
+
+
+
+
+# implementar o arima com os parâmetros encontrados em 1
+mod <- Arima(dados1, order=c(0,0,1), seasonal = list(order=c(1,0,0),period=4))
+
+
+
+
+# comparando os valores ajustados com a série original
+plot(dados1, xlab='', ylab='Média Acidentes com Vítimas')
+lines(mod$fitted,col='blue', zlab='Predito')
+
+
+
+
+
+# checar a qualidade do modelo
+checkresiduals(mod$fitted)
+
+
+
+# media de acidentes diários no trimestre - 2020 #
+
+dados$trim <- ifelse(dados$MES==1  | dados$MES==2  | dados$MES==3,  1,
+              ifelse(dados$MES==4  | dados$MES==5  | dados$MES==6,  2,
+              ifelse(dados$MES==7  | dados$MES==8  | dados$MES==9 , 3,
+              ifelse(dados$MES==10 | dados$MES==11 | dados$MES==12, 4,0))))
+Media <- dados %>% filter(ANO==2020) %>% group_by(ANO,trim) %>% summarise(media_dia=mean(N_ACIDENTES_VITIMAS,na.rm=TRUE))
+as.numeric(Media$media_dia)
+
+
+
+
+# fazendo as previsões
+prev <- forecast(mod, h=4, xlab='', ylab='Média de Acidentes com Vítimas')
+autoplot(prev)
+
+
+# valores médios previstos
+prev$mean
+
+# valores médios previstos do limíte inferior
+prev$lower
+
+# valores médios previstos do limíte superior
+prev$upper
+
